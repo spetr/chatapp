@@ -48,6 +48,9 @@ type ConversationSettings struct {
 	RepeatPenalty *float64 `json:"repeat_penalty,omitempty"` // Repetition penalty
 	Seed          *int     `json:"seed,omitempty"`           // Random seed for reproducibility
 	Grammar       *string  `json:"grammar,omitempty"`        // GBNF grammar for structured output
+
+	// ReAct (Reasoning and Acting) settings
+	MaxToolIterations *int `json:"max_tool_iterations,omitempty"` // Max tool call iterations (default 10)
 }
 
 type Message struct {

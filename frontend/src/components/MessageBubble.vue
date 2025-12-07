@@ -12,6 +12,8 @@ const props = defineProps<{
   message: Message
   isStreaming?: boolean
   streamingToolCalls?: ToolCall[]
+  currentIteration?: number
+  maxIterations?: number
 }>()
 
 // State for tool calls panel
@@ -28,6 +30,31 @@ const toolCalls = computed(() => {
 })
 
 const hasToolCalls = computed(() => toolCalls.value.length > 0)
+
+// Get unique iterations from tool calls
+const uniqueIterations = computed(() => {
+  const iterations = new Set<number>()
+  for (const tc of toolCalls.value) {
+    iterations.add(tc.iteration || 1)
+  }
+  return Array.from(iterations).sort((a, b) => a - b)
+})
+
+// Check if we have multiple iterations (ReAct loop)
+const hasMultipleIterations = computed(() => uniqueIterations.value.length > 1)
+
+// Group tool calls by iteration
+const toolCallsByIteration = computed(() => {
+  const groups: Record<number, ToolCall[]> = {}
+  for (const tc of toolCalls.value) {
+    const iter = tc.iteration || 1
+    if (!groups[iter]) {
+      groups[iter] = []
+    }
+    groups[iter].push(tc)
+  }
+  return groups
+})
 
 // Auto-expand tool calls when streaming
 watch([() => props.isStreaming, hasToolCalls], ([streaming, hasTc]) => {
@@ -309,55 +336,126 @@ function formatTokens(n: number): string {
           <i class="pi pi-wrench"></i>
           <span>MCP nástroje</span>
           <span class="text-xs text-gray-500">({{ toolCalls.length }})</span>
+          <!-- Show iteration info if multiple iterations -->
+          <span v-if="hasMultipleIterations" class="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full">
+            {{ uniqueIterations.length }} iterací
+          </span>
+          <!-- Current iteration indicator when streaming -->
+          <span v-if="isStreaming && currentIteration && currentIteration > 1" class="text-xs bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded-full animate-pulse">
+            Iterace {{ currentIteration }}/{{ maxIterations }}
+          </span>
         </button>
-        <div v-if="showToolCalls" class="mt-2 space-y-1">
-          <div
-            v-for="tc in toolCalls"
-            :key="tc.id"
-            class="bg-blue-50 dark:bg-blue-900/20 border-l-4 rounded-r-lg overflow-hidden"
-            :class="tc.status === 'running' ? 'border-yellow-400' : tc.status === 'error' ? 'border-red-400' : 'border-green-400'"
-          >
-            <!-- Tool header (always visible, clickable to expand) -->
-            <button
-              @click="toggleToolExpanded(tc.id)"
-              class="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-            >
-              <i
-                :class="[
-                  'pi text-sm',
-                  tc.status === 'running' ? 'pi-spin pi-spinner text-yellow-500' :
-                  tc.status === 'error' ? 'pi-times-circle text-red-500' :
-                  'pi-check-circle text-green-500'
-                ]"
-              ></i>
-              <span class="font-medium text-sm text-gray-900 dark:text-white">{{ tc.name }}</span>
-              <span v-if="getArgsPreview(tc.arguments)" class="text-xs text-gray-500 truncate flex-1">
-                ({{ getArgsPreview(tc.arguments) }})
-              </span>
-              <i :class="['pi text-xs text-gray-400', isToolExpanded(tc.id) ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
-            </button>
-
-            <!-- Expanded content -->
-            <div v-if="isToolExpanded(tc.id)" class="px-3 pb-3 border-t border-blue-100 dark:border-blue-800">
-              <!-- Arguments -->
-              <div v-if="Object.keys(tc.arguments || {}).length > 0" class="mt-2">
-                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Argumenty:</div>
-                <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto max-h-32"><code>{{ formatJson(tc.arguments) }}</code></pre>
+        <div v-if="showToolCalls" class="mt-2 space-y-2">
+          <!-- Group by iteration if multiple -->
+          <template v-if="hasMultipleIterations">
+            <div v-for="iteration in uniqueIterations" :key="iteration" class="space-y-1">
+              <!-- Iteration header -->
+              <div class="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 py-1">
+                <i class="pi pi-sync"></i>
+                <span class="font-medium">Iterace {{ iteration }}</span>
+                <span class="text-gray-400">({{ toolCallsByIteration[iteration]?.length || 0 }} nástrojů)</span>
               </div>
+              <!-- Tools in this iteration -->
+              <div
+                v-for="tc in toolCallsByIteration[iteration]"
+                :key="tc.id"
+                class="bg-blue-50 dark:bg-blue-900/20 border-l-4 rounded-r-lg overflow-hidden ml-4"
+                :class="tc.status === 'running' ? 'border-yellow-400' : tc.status === 'error' ? 'border-red-400' : 'border-green-400'"
+              >
+                <!-- Tool header (always visible, clickable to expand) -->
+                <button
+                  @click="toggleToolExpanded(tc.id)"
+                  class="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                >
+                  <i
+                    :class="[
+                      'pi text-sm',
+                      tc.status === 'running' ? 'pi-spin pi-spinner text-yellow-500' :
+                      tc.status === 'error' ? 'pi-times-circle text-red-500' :
+                      'pi-check-circle text-green-500'
+                    ]"
+                  ></i>
+                  <span class="font-medium text-sm text-gray-900 dark:text-white">{{ tc.name }}</span>
+                  <span v-if="getArgsPreview(tc.arguments)" class="text-xs text-gray-500 truncate flex-1">
+                    ({{ getArgsPreview(tc.arguments) }})
+                  </span>
+                  <i :class="['pi text-xs text-gray-400', isToolExpanded(tc.id) ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
+                </button>
 
-              <!-- Result -->
-              <div v-if="tc.result" class="mt-2">
-                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Výsledek:</div>
-                <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto max-h-48"><code>{{ tc.result }}</code></pre>
-              </div>
+                <!-- Expanded content -->
+                <div v-if="isToolExpanded(tc.id)" class="px-3 pb-3 border-t border-blue-100 dark:border-blue-800">
+                  <!-- Arguments -->
+                  <div v-if="Object.keys(tc.arguments || {}).length > 0" class="mt-2">
+                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Argumenty:</div>
+                    <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto max-h-32"><code>{{ formatJson(tc.arguments) }}</code></pre>
+                  </div>
 
-              <!-- Error -->
-              <div v-if="tc.error && !tc.result" class="mt-2">
-                <div class="text-xs font-medium text-red-500 mb-1">Chyba:</div>
-                <pre class="text-xs bg-red-100 dark:bg-red-900/30 p-2 rounded overflow-x-auto text-red-700 dark:text-red-300">{{ tc.error }}</pre>
+                  <!-- Result -->
+                  <div v-if="tc.result" class="mt-2">
+                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Výsledek:</div>
+                    <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto max-h-48"><code>{{ tc.result }}</code></pre>
+                  </div>
+
+                  <!-- Error -->
+                  <div v-if="tc.error && !tc.result" class="mt-2">
+                    <div class="text-xs font-medium text-red-500 mb-1">Chyba:</div>
+                    <pre class="text-xs bg-red-100 dark:bg-red-900/30 p-2 rounded overflow-x-auto text-red-700 dark:text-red-300">{{ tc.error }}</pre>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </template>
+
+          <!-- Single iteration - flat list -->
+          <template v-else>
+            <div
+              v-for="tc in toolCalls"
+              :key="tc.id"
+              class="bg-blue-50 dark:bg-blue-900/20 border-l-4 rounded-r-lg overflow-hidden"
+              :class="tc.status === 'running' ? 'border-yellow-400' : tc.status === 'error' ? 'border-red-400' : 'border-green-400'"
+            >
+              <!-- Tool header (always visible, clickable to expand) -->
+              <button
+                @click="toggleToolExpanded(tc.id)"
+                class="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+              >
+                <i
+                  :class="[
+                    'pi text-sm',
+                    tc.status === 'running' ? 'pi-spin pi-spinner text-yellow-500' :
+                    tc.status === 'error' ? 'pi-times-circle text-red-500' :
+                    'pi-check-circle text-green-500'
+                  ]"
+                ></i>
+                <span class="font-medium text-sm text-gray-900 dark:text-white">{{ tc.name }}</span>
+                <span v-if="getArgsPreview(tc.arguments)" class="text-xs text-gray-500 truncate flex-1">
+                  ({{ getArgsPreview(tc.arguments) }})
+                </span>
+                <i :class="['pi text-xs text-gray-400', isToolExpanded(tc.id) ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
+              </button>
+
+              <!-- Expanded content -->
+              <div v-if="isToolExpanded(tc.id)" class="px-3 pb-3 border-t border-blue-100 dark:border-blue-800">
+                <!-- Arguments -->
+                <div v-if="Object.keys(tc.arguments || {}).length > 0" class="mt-2">
+                  <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Argumenty:</div>
+                  <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto max-h-32"><code>{{ formatJson(tc.arguments) }}</code></pre>
+                </div>
+
+                <!-- Result -->
+                <div v-if="tc.result" class="mt-2">
+                  <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Výsledek:</div>
+                  <pre class="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto max-h-48"><code>{{ tc.result }}</code></pre>
+                </div>
+
+                <!-- Error -->
+                <div v-if="tc.error && !tc.result" class="mt-2">
+                  <div class="text-xs font-medium text-red-500 mb-1">Chyba:</div>
+                  <pre class="text-xs bg-red-100 dark:bg-red-900/30 p-2 rounded overflow-x-auto text-red-700 dark:text-red-300">{{ tc.error }}</pre>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 

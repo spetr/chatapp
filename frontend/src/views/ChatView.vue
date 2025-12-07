@@ -340,6 +340,8 @@ function handleFork(_messageId: string) {
                 :message="streamingMessage"
                 :is-streaming="true"
                 :streaming-tool-calls="chatStore.streamingToolCalls"
+                :current-iteration="chatStore.currentIteration"
+                :max-iterations="chatStore.maxIterations"
               />
 
               <!-- Token warning -->

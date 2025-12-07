@@ -30,6 +30,9 @@ export interface ConversationSettings {
   seed?: number               // Random seed for reproducibility
   grammar?: string            // GBNF grammar for structured output
   enable_citations?: boolean  // Enable document citations (Claude)
+
+  // ReAct settings
+  max_tool_iterations?: number // Max tool call iterations (default 10, max 50)
 }
 
 export interface Conversation {
@@ -53,6 +56,7 @@ export interface ToolCall {
   status: 'pending' | 'running' | 'completed' | 'error'
   started_at?: string
   completed_at?: string
+  iteration?: number  // Which ReAct iteration this tool call belongs to
 }
 
 export interface Message {
@@ -134,7 +138,7 @@ export interface PromptTemplate {
 }
 
 export interface StreamEvent {
-  type: 'start' | 'delta' | 'thinking' | 'metrics' | 'done' | 'error' | 'debug' | 'user_message' | 'tool_start' | 'tool_complete' | 'tool_result'
+  type: 'start' | 'delta' | 'thinking' | 'metrics' | 'done' | 'error' | 'debug' | 'user_message' | 'tool_start' | 'tool_complete' | 'tool_result' | 'tool_executing' | 'iteration_start' | 'iteration_end'
   content?: string
   metrics?: Metrics
   error?: string
@@ -144,6 +148,12 @@ export interface StreamEvent {
   tool_name?: string
   tool_arguments?: Record<string, unknown>
   tool_result?: string
+  // Iteration fields (ReAct)
+  iteration?: number
+  max_iterations?: number
+  total_iterations?: number
+  tool_count?: number
+  has_more?: boolean
 }
 
 export interface DebugInfo {

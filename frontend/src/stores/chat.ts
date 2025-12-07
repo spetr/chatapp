@@ -24,6 +24,11 @@ export const useChatStore = defineStore('chat', () => {
   // Flag to prevent duplicate message handling
   const streamFinalized = ref(false)
 
+  // ReAct iteration tracking
+  const currentIteration = ref(0)
+  const maxIterations = ref(10)
+  const totalIterations = ref(0)
+
   // Computed
   const currentProvider = computed(() => {
     if (!currentConversation.value) return null
@@ -136,6 +141,10 @@ export const useChatStore = defineStore('chat', () => {
     streamingToolCalls.value = []
     currentMetrics.value = null
     debugInfo.value = null
+    // Reset iteration tracking
+    currentIteration.value = 0
+    maxIterations.value = 10
+    totalIterations.value = 0
 
     try {
       const stream = api.sendMessageStream(currentConversation.value.id, content, attachments)
@@ -230,15 +239,29 @@ export const useChatStore = defineStore('chat', () => {
         clearStreamingState()
         break
 
+      case 'iteration_start': {
+        currentIteration.value = Number(event.iteration || 1)
+        maxIterations.value = Number(event.max_iterations || 10)
+        break
+      }
+
+      case 'iteration_end': {
+        // Iteration completed, update total
+        totalIterations.value = Number(event.iteration || currentIteration.value)
+        break
+      }
+
       case 'tool_start': {
         const data = (event.data as Record<string, unknown>) || event
         const toolId = String(data.id || event.tool_use_id || `tool_${Date.now()}`)
+        const iteration = Number(event.iteration || currentIteration.value || 1)
         const toolCall: ToolCall = {
           id: toolId,
           name: String(data.name || event.tool_name || 'unknown'),
           arguments: (data.arguments as Record<string, unknown>) || {},
           status: 'running',
           started_at: new Date().toISOString(),
+          iteration: iteration,
         }
         streamingToolCalls.value = [...streamingToolCalls.value, toolCall]
         break
@@ -317,6 +340,11 @@ export const useChatStore = defineStore('chat', () => {
         // Mark as finalized to prevent duplicate handling
         streamFinalized.value = true
 
+        // Capture total iterations from done event
+        if (event.total_iterations) {
+          totalIterations.value = Number(event.total_iterations)
+        }
+
         const assistantMessage: Message = {
           id: String(event.message_id || Date.now()),
           conversation_id: currentConversation.value?.id || '',
@@ -386,6 +414,10 @@ export const useChatStore = defineStore('chat', () => {
     streamingToolCalls.value = []
     currentMetrics.value = null
     debugInfo.value = null
+    // Reset iteration tracking
+    currentIteration.value = 0
+    maxIterations.value = 10
+    totalIterations.value = 0
 
     try {
       // Remove the last assistant message from view
@@ -480,6 +512,10 @@ export const useChatStore = defineStore('chat', () => {
     streamingToolCalls,
     currentMetrics,
     debugInfo,
+    // ReAct iteration state
+    currentIteration,
+    maxIterations,
+    totalIterations,
 
     // Computed
     currentProvider,

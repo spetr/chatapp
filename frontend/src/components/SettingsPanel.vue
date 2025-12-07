@@ -68,6 +68,9 @@ const stopSequences = ref('')
 const seed = ref<number | null>(null)
 const grammar = ref('')
 
+// ReAct settings
+const maxToolIterations = ref<number | null>(null)
+
 // Dynamic models for local providers (Ollama/llama.cpp fetch their own models)
 interface DynamicModelDetail {
   name: string
@@ -284,6 +287,9 @@ function buildSettings(): ConversationSettings {
   if (seed.value !== null) settings.seed = seed.value
   if (grammar.value.trim()) settings.grammar = grammar.value.trim()
 
+  // ReAct settings
+  if (maxToolIterations.value !== null) settings.max_tool_iterations = maxToolIterations.value
+
   return settings
 }
 
@@ -310,6 +316,7 @@ function loadSettings(settings?: ConversationSettings) {
     stopSequences.value = ''
     seed.value = null
     grammar.value = ''
+    maxToolIterations.value = null
     return
   }
 
@@ -332,6 +339,7 @@ function loadSettings(settings?: ConversationSettings) {
   stopSequences.value = settings.stop_sequences?.join(', ') ?? ''
   seed.value = settings.seed ?? null
   grammar.value = settings.grammar ?? ''
+  maxToolIterations.value = settings.max_tool_iterations ?? null
 }
 
 // Watch for provider change
@@ -696,15 +704,39 @@ function handleSubmit() {
           </div>
 
           <!-- Tools -->
-          <div class="feature-row">
-            <div class="feature-row-text">
-              <div class="feature-row-title flex items-center gap-2">
-                <i class="pi pi-wrench icon-primary"></i>
-                Nástroje (Tools)
+          <div class="feature-row flex-col !items-start space-y-3">
+            <div class="flex items-center justify-between w-full">
+              <div class="feature-row-text">
+                <div class="feature-row-title flex items-center gap-2">
+                  <i class="pi pi-wrench icon-primary"></i>
+                  Nástroje (Tools)
+                </div>
+                <div class="feature-row-desc">Povolit volání funkcí a nástrojů</div>
               </div>
-              <div class="feature-row-desc">Povolit volání funkcí a nástrojů</div>
+              <ToggleSwitch v-model="enableTools" />
             </div>
-            <ToggleSwitch v-model="enableTools" />
+            <!-- Max Tool Iterations (ReAct) - shown when tools enabled -->
+            <div v-if="enableTools" class="w-full pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div class="flex items-center gap-2 mb-2">
+                <i class="pi pi-sync text-purple-500 text-sm"></i>
+                <label class="text-sm text-gray-600 dark:text-gray-400">Max iterací ReAct smyčky</label>
+              </div>
+              <div class="flex items-center gap-3">
+                <InputNumber
+                  v-model="maxToolIterations"
+                  :min="1"
+                  :max="50"
+                  placeholder="10"
+                  class="w-24"
+                  :inputClass="'text-center'"
+                />
+                <span class="text-xs text-gray-500">výchozí: 10, max: 50</span>
+              </div>
+              <p class="text-xs text-gray-500 mt-2">
+                ReAct (Reasoning and Acting) umožňuje modelu iterativně volat nástroje a zpracovávat výsledky.
+                Vyšší limit = více iterací = komplexnější úlohy, ale delší doba zpracování.
+              </p>
+            </div>
           </div>
 
           <!-- Response Format (OpenAI) -->

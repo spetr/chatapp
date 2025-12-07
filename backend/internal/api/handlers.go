@@ -501,8 +501,17 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 			}
 		}
 
-		// Tool calling loop - max 10 iterations to prevent infinite loops
-		const maxToolIterations = 10
+		// Tool calling loop - configurable max iterations to prevent infinite loops
+		maxToolIterations := 10
+		if conv.Settings != nil && conv.Settings.MaxToolIterations != nil {
+			maxToolIterations = *conv.Settings.MaxToolIterations
+			if maxToolIterations < 1 {
+				maxToolIterations = 1
+			} else if maxToolIterations > 50 {
+				maxToolIterations = 50 // Hard limit for safety
+			}
+		}
+
 		currentMessages := messages
 		var allToolCalls []models.ToolCallInfo // Accumulate all tool calls across iterations
 
@@ -513,6 +522,13 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 			var debugData interface{}
 			var pendingToolCalls []ToolCall
 			isFirstIteration := iteration == 0
+
+			// Send iteration start event
+			writeEvent("iteration_start", fiber.Map{
+				"type":           "iteration_start",
+				"iteration":      iteration + 1,
+				"max_iterations": maxToolIterations,
+			})
 
 			callback := func(event models.StreamEvent) {
 				switch event.Type {
@@ -550,7 +566,12 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 						}
 						pendingToolCalls = append(pendingToolCalls, tc)
 					}
-					writeEvent("tool_start", event)
+					// Add iteration info to tool_start event
+					writeEvent("tool_start", fiber.Map{
+						"type":      "tool_start",
+						"data":      event.Data,
+						"iteration": iteration + 1,
+					})
 
 				case "tool_delta":
 					writeEvent("tool_delta", event)
@@ -624,9 +645,10 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 				}
 
 				writeEvent("done", fiber.Map{
-					"type":       "done",
-					"message_id": assistantMsg.ID,
-					"debug":      debugData,
+					"type":            "done",
+					"message_id":      assistantMsg.ID,
+					"debug":           debugData,
+					"total_iterations": iteration + 1,
 				})
 				break
 			}
@@ -647,9 +669,10 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 			// Add tool call messages to conversation
 			for _, tc := range pendingToolCalls {
 				writeEvent("tool_executing", fiber.Map{
-					"type": "tool_executing",
-					"id":   tc.ID,
-					"name": tc.Name,
+					"type":      "tool_executing",
+					"id":        tc.ID,
+					"name":      tc.Name,
+					"iteration": iteration + 1,
 				})
 
 				// Execute tool via MCP
@@ -667,11 +690,12 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 				}
 
 				writeEvent("tool_result", fiber.Map{
-					"type":     "tool_result",
-					"id":       tc.ID,
-					"name":     tc.Name,
-					"content":  truncateString(toolResultContent, 500),
-					"is_error": isError,
+					"type":      "tool_result",
+					"id":        tc.ID,
+					"name":      tc.Name,
+					"content":   truncateString(toolResultContent, 500),
+					"is_error":  isError,
+					"iteration": iteration + 1,
 				})
 
 				// Collect tool call and result with proper types
@@ -710,6 +734,14 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 				ToolResults: toolResults,
 			}
 			currentMessages = append(currentMessages, toolCallMsg, toolResultMsg)
+
+			// Send iteration end event before continuing to next iteration
+			writeEvent("iteration_end", fiber.Map{
+				"type":        "iteration_end",
+				"iteration":   iteration + 1,
+				"tool_count":  len(pendingToolCalls),
+				"has_more":    iteration+1 < maxToolIterations,
+			})
 
 			// Continue loop for next model response
 		}
