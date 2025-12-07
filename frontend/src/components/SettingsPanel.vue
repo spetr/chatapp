@@ -62,6 +62,8 @@ const maxHistoryLength = ref<number | null>(null)
 const contextMode = ref<'manual' | 'sliding_window' | 'auto_compact'>('manual')
 const autoCompactThreshold = ref<number | null>(null)
 const maxContextTokens = ref<number | null>(null)
+const autoCompactStrategy = ref<'summarize' | 'drop_oldest' | 'smart'>('smart')
+const autoCompactKeepRecent = ref<number | null>(null)
 
 // Advanced settings
 const responseFormat = ref('text')
@@ -220,6 +222,18 @@ const contextModeOptions = [
   { label: 'Auto-kompaktování', value: 'auto_compact', icon: 'pi pi-bolt' }
 ]
 
+// Auto-compact strategy options (same as manual compaction)
+const autoCompactStrategyOptions = [
+  { label: 'Shrnutí', value: 'summarize' },
+  { label: 'Zahodit staré', value: 'drop_oldest' },
+  { label: 'Chytré', value: 'smart' }
+]
+
+const autoCompactKeepRecentSlider = computed({
+  get: () => autoCompactKeepRecent.value ?? 10,
+  set: (val: number) => { autoCompactKeepRecent.value = val }
+})
+
 // Provider-specific visibility
 const isLlamaCpp = computed(() => selectedProvider.value === 'llamacpp')
 const isLocalProvider = computed(() => selectedProvider.value === 'ollama' || selectedProvider.value === 'llamacpp')
@@ -299,6 +313,8 @@ function buildSettings(): ConversationSettings {
   if (contextMode.value !== 'manual') settings.context_mode = contextMode.value
   if (autoCompactThreshold.value !== null) settings.auto_compact_threshold = autoCompactThreshold.value
   if (maxContextTokens.value !== null) settings.max_context_tokens = maxContextTokens.value
+  if (autoCompactStrategy.value !== 'smart') settings.auto_compact_strategy = autoCompactStrategy.value
+  if (autoCompactKeepRecent.value !== null) settings.auto_compact_keep_recent = autoCompactKeepRecent.value
 
   if (responseFormat.value !== 'text') settings.response_format = responseFormat.value
   if (numCtx.value !== null) settings.num_ctx = numCtx.value
@@ -336,6 +352,8 @@ function loadSettings(settings?: ConversationSettings) {
     contextMode.value = 'manual'
     autoCompactThreshold.value = null
     maxContextTokens.value = null
+    autoCompactStrategy.value = 'smart'
+    autoCompactKeepRecent.value = null
     responseFormat.value = 'text'
     thinkingBudget.value = 'medium'
     numCtx.value = null
@@ -362,6 +380,8 @@ function loadSettings(settings?: ConversationSettings) {
   contextMode.value = settings.context_mode ?? 'manual'
   autoCompactThreshold.value = settings.auto_compact_threshold ?? null
   maxContextTokens.value = settings.max_context_tokens ?? null
+  autoCompactStrategy.value = settings.auto_compact_strategy ?? 'smart'
+  autoCompactKeepRecent.value = settings.auto_compact_keep_recent ?? null
   responseFormat.value = settings.response_format ?? 'text'
   thinkingBudget.value = settings.thinking_budget ?? 'medium'
   numCtx.value = settings.num_ctx ?? null
@@ -973,6 +993,72 @@ function handleSubmit() {
                 <span>10k (úsporné)</span>
                 <span>80k (vyvážené)</span>
                 <span>200k (velký kontext)</span>
+              </div>
+            </div>
+
+            <!-- Compact Strategy -->
+            <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+              <label class="text-sm font-medium block mb-3">
+                <i class="pi pi-cog text-purple-500 mr-1"></i>
+                Strategie kompaktování
+              </label>
+              <SelectButton
+                v-model="autoCompactStrategy"
+                :options="autoCompactStrategyOptions"
+                optionLabel="label"
+                optionValue="value"
+                class="w-full"
+                :allowEmpty="false"
+              />
+              <div class="mt-3 p-2 rounded text-xs" :class="{
+                'bg-purple-100 dark:bg-purple-800/30': autoCompactStrategy === 'summarize',
+                'bg-red-100 dark:bg-red-800/30': autoCompactStrategy === 'drop_oldest',
+                'bg-green-100 dark:bg-green-800/30': autoCompactStrategy === 'smart'
+              }">
+                <template v-if="autoCompactStrategy === 'summarize'">
+                  <p class="text-purple-700 dark:text-purple-300">
+                    <i class="pi pi-file-edit mr-1"></i>
+                    <strong>Shrnutí:</strong> Staré zprávy se analyzují a vytvoří se shrnutí klíčových bodů. Zachová kontext, ale ztratí detaily.
+                  </p>
+                </template>
+                <template v-else-if="autoCompactStrategy === 'drop_oldest'">
+                  <p class="text-red-700 dark:text-red-300">
+                    <i class="pi pi-trash mr-1"></i>
+                    <strong>Zahodit staré:</strong> Nejstarší zprávy se prostě vynechají bez shrnutí. Nejrychlejší, ale ztráta kontextu.
+                  </p>
+                </template>
+                <template v-else>
+                  <p class="text-green-700 dark:text-green-300">
+                    <i class="pi pi-sparkles mr-1"></i>
+                    <strong>Chytré:</strong> Zachová důležité zprávy (otázky, klíčová rozhodnutí), ostatní shrne. Nejlepší poměr.
+                  </p>
+                </template>
+              </div>
+            </div>
+
+            <!-- Keep Recent Messages -->
+            <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <label class="text-sm font-medium">Ponechat posledních zpráv</label>
+                  <p class="text-xs text-gray-500">Tyto zprávy se nikdy nekompaktují</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-lg font-mono font-bold text-purple-600 dark:text-purple-400">{{ autoCompactKeepRecent ?? 10 }}</span>
+                  <span class="text-xs text-gray-500 ml-1">zpráv</span>
+                </div>
+              </div>
+              <Slider
+                v-model="autoCompactKeepRecentSlider"
+                :min="2"
+                :max="30"
+                :step="1"
+                class="w-full"
+              />
+              <div class="flex justify-between text-xs text-gray-500 mt-1">
+                <span>2 (minimální)</span>
+                <span>10 (doporučeno)</span>
+                <span>30 (více kontextu)</span>
               </div>
             </div>
           </div>

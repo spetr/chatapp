@@ -23,6 +23,8 @@ export interface ConversationSettings {
   // Auto-compact settings (only used when context_mode = "auto_compact")
   auto_compact_threshold?: number // Messages before auto-compact (default 30)
   max_context_tokens?: number     // Token budget for context (default 80000)
+  auto_compact_strategy?: 'summarize' | 'drop_oldest' | 'smart' // Compaction strategy (default "smart")
+  auto_compact_keep_recent?: number // Messages to keep unchanged (default 10)
 
   // Response format
   response_format?: string    // "text" or "json_object"

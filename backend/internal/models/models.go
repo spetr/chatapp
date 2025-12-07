@@ -43,8 +43,10 @@ type ConversationSettings struct {
 	ContextMode *string `json:"context_mode,omitempty"`
 
 	// Auto-compact settings (only used when ContextMode = "auto_compact")
-	AutoCompactThreshold *int `json:"auto_compact_threshold,omitempty"` // Messages before auto-compact (default 30)
-	MaxContextTokens     *int `json:"max_context_tokens,omitempty"`     // Token budget for context (default 80000)
+	AutoCompactThreshold *int    `json:"auto_compact_threshold,omitempty"` // Messages before auto-compact (default 30)
+	MaxContextTokens     *int    `json:"max_context_tokens,omitempty"`     // Token budget for context (default 80000)
+	AutoCompactStrategy  *string `json:"auto_compact_strategy,omitempty"`  // "summarize", "drop_oldest", "smart" (default "smart")
+	AutoCompactKeepRecent *int   `json:"auto_compact_keep_recent,omitempty"` // Messages to keep unchanged (default 10)
 
 	// Response format
 	ResponseFormat *string `json:"response_format,omitempty"` // "text" or "json_object"

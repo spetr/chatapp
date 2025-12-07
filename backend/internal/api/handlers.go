@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/spetr/chatapp/internal/config"
-	ctxmgr "github.com/spetr/chatapp/internal/context"
 	"github.com/spetr/chatapp/internal/mcp"
 	"github.com/spetr/chatapp/internal/models"
 	"github.com/spetr/chatapp/internal/provider"
@@ -548,34 +547,98 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 				}
 
 			case "auto_compact":
-				// Use the context manager for intelligent processing
+				// Auto-compact with configurable strategy (same as manual compaction)
 				threshold := 30 // default threshold
 				if conv.Settings.AutoCompactThreshold != nil {
 					threshold = *conv.Settings.AutoCompactThreshold
 				}
-				maxTokens := 80000 // default token budget
-				if conv.Settings.MaxContextTokens != nil {
-					maxTokens = *conv.Settings.MaxContextTokens
+				keepRecent := 10 // default keep recent
+				if conv.Settings.AutoCompactKeepRecent != nil {
+					keepRecent = *conv.Settings.AutoCompactKeepRecent
+				}
+				strategy := "smart" // default strategy
+				if conv.Settings.AutoCompactStrategy != nil {
+					strategy = *conv.Settings.AutoCompactStrategy
 				}
 
+				// Only compact if we exceed the threshold
 				if len(currentMessages) > threshold {
-					// Create context manager with appropriate config
-					mgr := ctxmgr.NewManager(config.ContextConfig{
-						MaxMessages:      threshold,
-						MaxTokens:        maxTokens,
-						TruncateLongMsgs: true,
-						MaxMsgLength:     4000,
-					}, nil)
+					// Separate messages to process and messages to keep
+					if len(currentMessages) > keepRecent {
+						toProcess := currentMessages[:len(currentMessages)-keepRecent]
+						toKeep := currentMessages[len(currentMessages)-keepRecent:]
 
-					// Process the context
-					processed, err := mgr.ProcessContext(currentMessages, conv.SystemPrompt, nil)
-					if err == nil && len(processed.Messages) > 0 {
-						currentMessages = processed.Messages
-						// Log that context was optimized
-						if processed.WasTruncated || processed.WasSummarized {
-							log.Printf("Context optimized for conversation %s: %d -> %d messages (truncated: %v, summarized: %v)",
-								convID, len(messages), len(currentMessages), processed.WasTruncated, processed.WasSummarized)
+						var processedMessages []models.Message
+						var summary string
+
+						switch strategy {
+						case "drop_oldest":
+							// Simply drop old messages - keep only recent
+							processedMessages = toKeep
+							log.Printf("Auto-compact (drop_oldest) for conversation %s: dropped %d old messages",
+								convID, len(toProcess))
+
+						case "smart":
+							// Keep important messages (questions, key indicators, attachments)
+							var important []models.Message
+							for _, msg := range toProcess {
+								content := strings.ToLower(msg.Content)
+								if strings.Contains(content, "?") ||
+									strings.Contains(content, "important") ||
+									strings.Contains(content, "key") ||
+									strings.Contains(content, "summary") ||
+									len(msg.Attachments) > 0 {
+									important = append(important, msg)
+								}
+							}
+							// Generate summary of non-important messages
+							var nonImportant []models.Message
+							for _, msg := range toProcess {
+								isImportant := false
+								for _, imp := range important {
+									if imp.ID == msg.ID {
+										isImportant = true
+										break
+									}
+								}
+								if !isImportant {
+									nonImportant = append(nonImportant, msg)
+								}
+							}
+							if len(nonImportant) > 0 {
+								summary = generateSummaryText(nonImportant)
+							}
+							// Combine: summary + important + recent
+							if summary != "" {
+								summaryMsg := models.Message{
+									Role:    "system",
+									Content: fmt.Sprintf("[Shrnutí předchozí konverzace: %s]", summary),
+								}
+								processedMessages = append([]models.Message{summaryMsg}, important...)
+							} else {
+								processedMessages = important
+							}
+							processedMessages = append(processedMessages, toKeep...)
+							log.Printf("Auto-compact (smart) for conversation %s: %d -> %d messages (kept %d important, summarized %d)",
+								convID, len(messages), len(processedMessages), len(important), len(nonImportant))
+
+						default: // "summarize"
+							// Summarize all old messages
+							summary = generateSummaryText(toProcess)
+							if summary != "" {
+								summaryMsg := models.Message{
+									Role:    "system",
+									Content: fmt.Sprintf("[Shrnutí předchozí konverzace: %s]", summary),
+								}
+								processedMessages = append([]models.Message{summaryMsg}, toKeep...)
+							} else {
+								processedMessages = toKeep
+							}
+							log.Printf("Auto-compact (summarize) for conversation %s: %d -> %d messages",
+								convID, len(messages), len(processedMessages))
 						}
+
+						currentMessages = processedMessages
 					}
 				}
 
