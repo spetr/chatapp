@@ -36,6 +36,16 @@ type ConversationSettings struct {
 	ContextLength    *int `json:"context_length,omitempty"`     // Custom context window
 	MaxHistoryLength *int `json:"max_history_length,omitempty"` // Max messages to include
 
+	// Context maintenance mode: "manual", "sliding_window", "auto_compact"
+	// - manual: No automatic context management (default, user manages manually)
+	// - sliding_window: Keep only last N messages (based on MaxHistoryLength)
+	// - auto_compact: Automatically summarize old messages when threshold reached
+	ContextMode *string `json:"context_mode,omitempty"`
+
+	// Auto-compact settings (only used when ContextMode = "auto_compact")
+	AutoCompactThreshold *int `json:"auto_compact_threshold,omitempty"` // Messages before auto-compact (default 30)
+	MaxContextTokens     *int `json:"max_context_tokens,omitempty"`     // Token budget for context (default 80000)
+
 	// Response format
 	ResponseFormat *string `json:"response_format,omitempty"` // "text" or "json_object"
 

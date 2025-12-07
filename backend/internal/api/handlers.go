@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/spetr/chatapp/internal/config"
+	ctxmgr "github.com/spetr/chatapp/internal/context"
 	"github.com/spetr/chatapp/internal/mcp"
 	"github.com/spetr/chatapp/internal/models"
 	"github.com/spetr/chatapp/internal/provider"
@@ -522,7 +523,66 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 			}
 		}
 
+		// Apply context management based on conversation settings
 		currentMessages := messages
+		if conv.Settings != nil {
+			contextMode := "manual" // default
+			if conv.Settings.ContextMode != nil {
+				contextMode = *conv.Settings.ContextMode
+			} else if conv.Settings.MaxHistoryLength != nil {
+				// Backwards compatibility: if maxHistoryLength is set but no mode, use sliding_window
+				contextMode = "sliding_window"
+			}
+
+			switch contextMode {
+			case "sliding_window":
+				// Keep only last N messages
+				maxHistory := 50 // default
+				if conv.Settings.MaxHistoryLength != nil {
+					maxHistory = *conv.Settings.MaxHistoryLength
+				}
+				if len(currentMessages) > maxHistory {
+					currentMessages = currentMessages[len(currentMessages)-maxHistory:]
+					log.Printf("Sliding window applied for conversation %s: %d -> %d messages",
+						convID, len(messages), len(currentMessages))
+				}
+
+			case "auto_compact":
+				// Use the context manager for intelligent processing
+				threshold := 30 // default threshold
+				if conv.Settings.AutoCompactThreshold != nil {
+					threshold = *conv.Settings.AutoCompactThreshold
+				}
+				maxTokens := 80000 // default token budget
+				if conv.Settings.MaxContextTokens != nil {
+					maxTokens = *conv.Settings.MaxContextTokens
+				}
+
+				if len(currentMessages) > threshold {
+					// Create context manager with appropriate config
+					mgr := ctxmgr.NewManager(config.ContextConfig{
+						MaxMessages:      threshold,
+						MaxTokens:        maxTokens,
+						TruncateLongMsgs: true,
+						MaxMsgLength:     4000,
+					}, nil)
+
+					// Process the context
+					processed, err := mgr.ProcessContext(currentMessages, conv.SystemPrompt, nil)
+					if err == nil && len(processed.Messages) > 0 {
+						currentMessages = processed.Messages
+						// Log that context was optimized
+						if processed.WasTruncated || processed.WasSummarized {
+							log.Printf("Context optimized for conversation %s: %d -> %d messages (truncated: %v, summarized: %v)",
+								convID, len(messages), len(currentMessages), processed.WasTruncated, processed.WasSummarized)
+						}
+					}
+				}
+
+			// case "manual": no-op, use full message list
+			}
+		}
+
 		var allToolCalls []models.ToolCallInfo // Accumulate all tool calls across iterations
 
 		for iteration := 0; iteration < maxToolIterations; iteration++ {

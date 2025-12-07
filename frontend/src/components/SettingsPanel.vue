@@ -14,6 +14,7 @@ import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Slider from 'primevue/slider'
 import ToggleSwitch from 'primevue/toggleswitch'
+import SelectButton from 'primevue/selectbutton'
 import Button from 'primevue/button'
 import Divider from 'primevue/divider'
 
@@ -58,6 +59,9 @@ const enableTools = ref(false)
 // Context settings
 const contextLength = ref<number | null>(null)
 const maxHistoryLength = ref<number | null>(null)
+const contextMode = ref<'manual' | 'sliding_window' | 'auto_compact'>('manual')
+const autoCompactThreshold = ref<number | null>(null)
+const maxContextTokens = ref<number | null>(null)
 
 // Advanced settings
 const responseFormat = ref('text')
@@ -200,6 +204,21 @@ const maxHistorySlider = computed({
   get: () => maxHistoryLength.value ?? 50,
   set: (val: number) => { maxHistoryLength.value = val }
 })
+const autoCompactThresholdSlider = computed({
+  get: () => autoCompactThreshold.value ?? 30,
+  set: (val: number) => { autoCompactThreshold.value = val }
+})
+const maxContextTokensSlider = computed({
+  get: () => maxContextTokens.value ?? 80000,
+  set: (val: number) => { maxContextTokens.value = val }
+})
+
+// Context mode options for SelectButton
+const contextModeOptions = [
+  { label: 'Ruční', value: 'manual', icon: 'pi pi-user' },
+  { label: 'Posuvné okno', value: 'sliding_window', icon: 'pi pi-arrow-right' },
+  { label: 'Auto-kompaktování', value: 'auto_compact', icon: 'pi pi-bolt' }
+]
 
 // Provider-specific visibility
 const isLlamaCpp = computed(() => selectedProvider.value === 'llamacpp')
@@ -276,6 +295,11 @@ function buildSettings(): ConversationSettings {
   if (contextLength.value !== null) settings.context_length = contextLength.value
   if (maxHistoryLength.value !== null) settings.max_history_length = maxHistoryLength.value
 
+  // Context mode and auto-compact settings
+  if (contextMode.value !== 'manual') settings.context_mode = contextMode.value
+  if (autoCompactThreshold.value !== null) settings.auto_compact_threshold = autoCompactThreshold.value
+  if (maxContextTokens.value !== null) settings.max_context_tokens = maxContextTokens.value
+
   if (responseFormat.value !== 'text') settings.response_format = responseFormat.value
   if (numCtx.value !== null) settings.num_ctx = numCtx.value
   if (numPredict.value !== null) settings.num_predict = numPredict.value
@@ -309,6 +333,9 @@ function loadSettings(settings?: ConversationSettings) {
     enableTools.value = false
     contextLength.value = null
     maxHistoryLength.value = null
+    contextMode.value = 'manual'
+    autoCompactThreshold.value = null
+    maxContextTokens.value = null
     responseFormat.value = 'text'
     thinkingBudget.value = 'medium'
     numCtx.value = null
@@ -332,6 +359,9 @@ function loadSettings(settings?: ConversationSettings) {
   enableTools.value = settings.enable_tools ?? false
   contextLength.value = settings.context_length ?? null
   maxHistoryLength.value = settings.max_history_length ?? null
+  contextMode.value = settings.context_mode ?? 'manual'
+  autoCompactThreshold.value = settings.auto_compact_threshold ?? null
+  maxContextTokens.value = settings.max_context_tokens ?? null
   responseFormat.value = settings.response_format ?? 'text'
   thinkingBudget.value = settings.thinking_budget ?? 'medium'
   numCtx.value = settings.num_ctx ?? null
@@ -800,28 +830,81 @@ function handleSubmit() {
         <!-- Context Tab -->
         <TabPanel value="context">
           <div class="space-y-5">
-          <!-- Sliding Window Info Box -->
+
+          <!-- Educational Info Box - What is Context -->
           <div class="info-box info-box-blue">
             <div class="flex items-start gap-2">
               <i class="pi pi-info-circle info-box-icon mt-0.5" />
               <div>
-                <p class="info-box-text">
-                  <strong class="info-box-title">Posuvné okno (Sliding Window)</strong> omezuje počet zpráv odesílaných s každým požadavkem.
-                  Starší zprávy se automaticky odříznou, což šetří tokeny a snižuje náklady.
+                <p class="info-box-title">Co je kontextové okno?</p>
+                <p class="info-box-text mt-1">
+                  Kontext je vše, co model vidí: systémový prompt + celá historie konverzace + váš nový dotaz.
+                  Modely mají limit (např. 200k tokenů). Když ho překročíte, starší zprávy musí být odstraněny nebo shrnuty.
                 </p>
               </div>
             </div>
           </div>
 
-          <!-- Max History (Sliding Window) -->
-          <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <!-- Context Mode Selector -->
+          <div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <label class="text-sm font-medium block mb-3">
+              <i class="pi pi-cog text-blue-500 mr-1"></i>
+              Režim správy kontextu
+            </label>
+            <SelectButton
+              v-model="contextMode"
+              :options="contextModeOptions"
+              optionLabel="label"
+              optionValue="value"
+              class="w-full context-mode-selector"
+              :allowEmpty="false"
+            />
+
+            <!-- Mode Descriptions -->
+            <div class="mt-3 p-3 rounded-lg text-xs" :class="{
+              'bg-gray-100 dark:bg-gray-700': contextMode === 'manual',
+              'bg-blue-50 dark:bg-blue-900/30': contextMode === 'sliding_window',
+              'bg-purple-50 dark:bg-purple-900/30': contextMode === 'auto_compact'
+            }">
+              <template v-if="contextMode === 'manual'">
+                <p class="font-medium text-gray-700 dark:text-gray-300">
+                  <i class="pi pi-user mr-1"></i> Ruční režim
+                </p>
+                <p class="text-gray-600 dark:text-gray-400 mt-1">
+                  Kontext se neomezuje automaticky. Používejte tlačítko "Spravovat kontext" pro ruční kompaktování.
+                  Vhodné pro krátké konverzace nebo když chcete plnou kontrolu.
+                </p>
+              </template>
+              <template v-else-if="contextMode === 'sliding_window'">
+                <p class="font-medium text-blue-700 dark:text-blue-300">
+                  <i class="pi pi-arrow-right mr-1"></i> Posuvné okno
+                </p>
+                <p class="text-blue-600 dark:text-blue-400 mt-1">
+                  Automaticky odesílá pouze posledních N zpráv. Starší zprávy se odříznou bez shrnutí.
+                  Nejjednodušší a nejlevnější metoda, ale ztratíte historii.
+                </p>
+              </template>
+              <template v-else>
+                <p class="font-medium text-purple-700 dark:text-purple-300">
+                  <i class="pi pi-bolt mr-1"></i> Automatické kompaktování
+                </p>
+                <p class="text-purple-600 dark:text-purple-400 mt-1">
+                  Po dosažení prahu zpráv se starší zprávy automaticky shrnou do krátkého souhrnu.
+                  Zachová kontext konverzace a šetří tokeny. Ideální pro dlouhé konverzace.
+                </p>
+              </template>
+            </div>
+          </div>
+
+          <!-- Sliding Window Settings (shown when sliding_window mode) -->
+          <div v-if="contextMode === 'sliding_window'" class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <div class="flex items-center justify-between mb-3">
               <div>
-                <label class="text-sm font-medium">Posuvné okno historie</label>
+                <label class="text-sm font-medium">Velikost posuvného okna</label>
                 <p class="text-xs text-gray-500">Ponechat maximálně N posledních zpráv</p>
               </div>
               <div class="text-right">
-                <span class="text-lg font-mono font-bold">{{ maxHistoryLength ?? '∞' }}</span>
+                <span class="text-lg font-mono font-bold text-blue-600 dark:text-blue-400">{{ maxHistoryLength ?? 50 }}</span>
                 <span class="text-xs text-gray-500 ml-1">zpráv</span>
               </div>
             </div>
@@ -833,36 +916,86 @@ function handleSubmit() {
               class="w-full"
             />
             <div class="flex justify-between text-xs text-gray-500 mt-1">
-              <span>4 (úsporné)</span>
-              <span>Klikněte pro reset</span>
+              <span>4 (velmi úsporné)</span>
+              <span>50 (vyvážené)</span>
               <span>100 (plná historie)</span>
             </div>
-            <Button
-              v-if="maxHistoryLength"
-              label="Vypnout limit"
-              icon="pi pi-times"
-              size="small"
-              severity="secondary"
-              text
-              @click="maxHistoryLength = null"
-              class="mt-2"
-            />
+          </div>
+
+          <!-- Auto-Compact Settings (shown when auto_compact mode) -->
+          <div v-if="contextMode === 'auto_compact'" class="space-y-4">
+            <!-- Threshold -->
+            <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <label class="text-sm font-medium">Práh pro kompaktování</label>
+                  <p class="text-xs text-gray-500">Po kolika zprávách se spustí automatické shrnutí</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-lg font-mono font-bold text-purple-600 dark:text-purple-400">{{ autoCompactThreshold ?? 30 }}</span>
+                  <span class="text-xs text-gray-500 ml-1">zpráv</span>
+                </div>
+              </div>
+              <Slider
+                v-model="autoCompactThresholdSlider"
+                :min="10"
+                :max="100"
+                :step="5"
+                class="w-full"
+              />
+              <div class="flex justify-between text-xs text-gray-500 mt-1">
+                <span>10 (časté shrnutí)</span>
+                <span>30 (vyvážené)</span>
+                <span>100 (méně časté)</span>
+              </div>
+            </div>
+
+            <!-- Token Budget -->
+            <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <label class="text-sm font-medium">Tokenový budget</label>
+                  <p class="text-xs text-gray-500">Maximální počet tokenů pro kontext před kompaktováním</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-lg font-mono font-bold text-purple-600 dark:text-purple-400">{{ ((maxContextTokens ?? 80000) / 1000).toFixed(0) }}k</span>
+                  <span class="text-xs text-gray-500 ml-1">tokenů</span>
+                </div>
+              </div>
+              <Slider
+                v-model="maxContextTokensSlider"
+                :min="10000"
+                :max="200000"
+                :step="5000"
+                class="w-full"
+              />
+              <div class="flex justify-between text-xs text-gray-500 mt-1">
+                <span>10k (úsporné)</span>
+                <span>80k (vyvážené)</span>
+                <span>200k (velký kontext)</span>
+              </div>
+            </div>
           </div>
 
           <Divider />
 
-          <!-- Context Window Size -->
+          <!-- Context Window Size (always visible) -->
           <div>
-            <label class="text-sm font-medium block mb-2">Velikost kontextového okna (tokeny)</label>
+            <label class="text-sm font-medium block mb-2">
+              <i class="pi pi-expand text-gray-500 mr-1"></i>
+              Maximální velikost kontextu (tokeny)
+            </label>
             <InputNumber
               v-model="contextLength"
               :min="1024"
               :max="1000000"
               :step="1024"
-              placeholder="výchozí dle modelu"
+              placeholder="výchozí dle modelu (např. 200k pro Claude)"
               class="w-full"
             />
-            <p class="text-xs text-gray-500 mt-1">Maximální počet tokenů v kontextu (systém + historie + odpověď)</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Limit pro celý kontext včetně odpovědi. Obvykle nastavuje model automaticky.
+            </p>
           </div>
 
           <!-- Local provider specific (Ollama / llama.cpp) -->
@@ -925,17 +1058,31 @@ function handleSubmit() {
             <p class="text-xs text-gray-500 mt-1">Texty oddělené čárkou, které ukončí generování</p>
           </div>
 
+          <!-- Educational Tips -->
+          <div class="info-box info-box-green">
+            <div class="info-box-title mb-1">
+              <i class="pi pi-graduation-cap mr-1" /> Jak fungují jednotlivé režimy?
+            </div>
+            <div class="info-box-text space-y-2 text-xs">
+              <p><strong>Ruční:</strong> Plná historie bez omezení. Při dlouhých konverzacích můžete narazit na limit a musíte ručně kompaktovat.</p>
+              <p><strong>Posuvné okno:</strong> Jednoduchý sliding window - zachová posledních N zpráv, starší zahodí. Rychlé, ale ztrácíte historii.</p>
+              <p><strong>Auto-kompaktování:</strong> Inteligentní shrnutí starších zpráv. Zachová kontext bez ztráty důležitých informací.</p>
+            </div>
+          </div>
+
           <!-- Tips -->
           <div class="info-box info-box-yellow">
             <div class="info-box-title mb-1">
               <i class="pi pi-lightbulb mr-1" /> Tipy pro úsporu tokenů
             </div>
             <ul class="info-box-text space-y-1 ml-4 list-disc text-xs">
-              <li>Nastavte posuvné okno na 20-30 zpráv pro většinu konverzací</li>
-              <li>Používejte tlačítko "Spravovat kontext" pro ruční kompaktování</li>
+              <li>Pro běžné konverzace použijte <strong>Posuvné okno</strong> s 20-30 zprávami</li>
+              <li>Pro komplexní úkoly použijte <strong>Auto-kompaktování</strong> pro zachování kontextu</li>
               <li>Claude podporuje prompt caching - opakovaný kontext stojí jen 10%</li>
+              <li>Kdykoliv můžete použít tlačítko "Spravovat kontext" pro ruční optimalizaci</li>
             </ul>
           </div>
+
           </div>
         </TabPanel>
         </TabPanels>

@@ -17,6 +17,13 @@ export interface ConversationSettings {
   context_length?: number     // Custom context window
   max_history_length?: number // Max messages to include
 
+  // Context maintenance mode: "manual", "sliding_window", "auto_compact"
+  context_mode?: 'manual' | 'sliding_window' | 'auto_compact'
+
+  // Auto-compact settings (only used when context_mode = "auto_compact")
+  auto_compact_threshold?: number // Messages before auto-compact (default 30)
+  max_context_tokens?: number     // Token budget for context (default 80000)
+
   // Response format
   response_format?: string    // "text" or "json_object"
 
