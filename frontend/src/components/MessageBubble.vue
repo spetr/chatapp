@@ -477,20 +477,37 @@ function formatTokens(n: number): string {
       />
 
       <!-- Metrics & Actions (for assistant messages) -->
+      <!-- Metriky zobrazují statistiky o zpracování požadavku LLM modelem -->
       <div v-if="!isUser && message.metrics" class="mt-3 flex items-center gap-4 text-xs text-gray-500">
-        <span v-if="message.metrics.input_tokens != null" title="Input tokens">
+        <span
+          v-if="message.metrics.input_tokens != null"
+          v-tooltip="'Vstupní tokeny: Počet tokenů odeslaných modelu (systémový prompt + historie + váš dotaz)'"
+          class="cursor-help"
+        >
           <i class="pi pi-arrow-right mr-1"></i>
           {{ formatTokens(message.metrics.input_tokens) }} in
         </span>
-        <span v-if="message.metrics.output_tokens != null" title="Output tokens">
+        <span
+          v-if="message.metrics.output_tokens != null"
+          v-tooltip="'Výstupní tokeny: Počet tokenů vygenerovaných modelem (odpověď)'"
+          class="cursor-help"
+        >
           <i class="pi pi-arrow-left mr-1"></i>
           {{ formatTokens(message.metrics.output_tokens) }} out
         </span>
-        <span v-if="message.metrics.ttfb_ms != null" title="Time to first byte">
+        <span
+          v-if="message.metrics.ttfb_ms != null"
+          v-tooltip="'Doba do prvního tokenu (TTFB): Jak rychle model začal odpovídat'"
+          class="cursor-help"
+        >
           <i class="pi pi-clock mr-1"></i>
           {{ message.metrics.ttfb_ms.toFixed(0) }}ms TTFB
         </span>
-        <span v-if="message.metrics.tokens_per_second != null" title="Tokens per second">
+        <span
+          v-if="message.metrics.tokens_per_second != null"
+          v-tooltip="'Rychlost generování: Kolik tokenů model vygeneruje za sekundu'"
+          class="cursor-help"
+        >
           <i class="pi pi-bolt mr-1"></i>
           {{ message.metrics.tokens_per_second.toFixed(1) }} tok/s
         </span>

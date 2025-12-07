@@ -4,10 +4,22 @@ This file provides guidance for Claude Code when working on this project.
 
 ## Project Overview
 
-ChatApp is a full-featured LLM chat application with:
+ChatApp is an **educational LLM chat application** designed to help users learn about:
+- How language models work (tokens, temperature, sampling)
+- Different LLM providers and their capabilities
+- Advanced features like Chain of Thought, ReAct, and tool use
+- Prompt engineering and context management
+
+### Tech Stack
 - **Backend**: Go (Fiber framework) with SQLite storage
 - **Frontend**: Vue 3 + TypeScript + PrimeVue + Tailwind CSS
 - **Providers**: Anthropic Claude, OpenAI, Ollama, llama.cpp
+
+### Educational Focus
+- UI includes explanatory tooltips and info boxes
+- Settings panel explains what each parameter does
+- Metrics display helps understand LLM performance
+- Tool calls are visualized with iteration tracking
 
 ## Build & Run Commands
 
@@ -152,3 +164,49 @@ cd frontend && npm run test
 
 - UI text is in Czech (cs-CZ)
 - Code comments and documentation in English
+- Error messages should be in Czech for user-facing, English for logs
+
+## Important Considerations
+
+### Concurrency Safety
+- `activeStreams` map in handlers.go is protected by `activeStreamsMu` mutex
+- Always lock mutex before accessing, unlock after
+
+### Error Handling Best Practices
+- Always check and log errors, don't ignore with `_`
+- Use descriptive error messages
+- Propagate errors up the call stack when appropriate
+
+### UI Guidelines for Educational Content
+1. **Tooltips**: Add `v-tooltip` to all icon buttons explaining their function
+2. **Info Boxes**: Use `.info-box` classes (blue, yellow, purple, green) for explanations
+3. **Metrics**: Show and explain LLM metrics (tokens, latency, speed)
+4. **Czech Language**: Keep UI text in Czech, use clear explanations
+
+### SSE Event Types
+| Event | Description |
+|-------|-------------|
+| `start` | Stream started |
+| `delta` | Content chunk |
+| `thinking` | Chain of Thought content |
+| `tool_start` | Tool call initiated |
+| `tool_executing` | Tool being executed |
+| `tool_result` | Tool execution result |
+| `iteration_start` | ReAct loop iteration started |
+| `iteration_end` | ReAct loop iteration ended |
+| `metrics` | Token usage and performance |
+| `done` | Stream completed |
+| `error` | Error occurred |
+
+### ReAct (Reasoning and Acting)
+- Configurable `max_tool_iterations` (1-50, default 10)
+- Each iteration: Think → Act (tool call) → Observe (result) → Repeat
+- Frontend groups tool calls by iteration when multiple iterations occur
+
+### Available Info Box Colors
+```html
+<div class="info-box info-box-blue">   <!-- Informational -->
+<div class="info-box info-box-yellow"> <!-- Warning/Tips -->
+<div class="info-box info-box-purple"> <!-- Features/Advanced -->
+<div class="info-box info-box-green">  <!-- Success/Positive -->
+```

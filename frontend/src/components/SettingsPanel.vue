@@ -576,14 +576,36 @@ function handleSubmit() {
         <!-- Generation Tab -->
         <TabPanel value="generation">
           <div class="space-y-5">
+          <!-- Educational info box -->
+          <div class="info-box info-box-blue">
+            <div class="flex items-start gap-2">
+              <i class="pi pi-question-circle info-box-icon mt-0.5" />
+              <div>
+                <p class="info-box-title">Jak funguje generování textu?</p>
+                <p class="info-box-text mt-1">
+                  LLM modely generují text token po tokenu. Každý token je vybrán z pravděpodobnostního rozdělení.
+                  Parametry níže ovlivňují, jak model vybírá tokeny - od deterministického (vždy stejná odpověď)
+                  po kreativní (různé, někdy překvapivé odpovědi).
+                </p>
+              </div>
+            </div>
+          </div>
+
           <!-- Temperature -->
           <div>
             <div class="flex justify-between mb-2">
-              <label class="text-sm font-medium">Teplota (Temperature)</label>
+              <label class="text-sm font-medium flex items-center gap-2">
+                Teplota (Temperature)
+                <i class="pi pi-info-circle text-gray-400 text-xs cursor-help" v-tooltip="'Nejdůležitější parametr pro kontrolu kreativity. Hodnota 0 = vždy stejná odpověď, 2 = velmi náhodné.'"></i>
+              </label>
               <span class="text-sm text-gray-500">{{ temperature ?? 'výchozí' }}</span>
             </div>
             <Slider v-model="temperatureSlider" :min="0" :max="2" :step="0.1" class="w-full" />
-            <p class="text-xs text-gray-500 mt-1">Nižší = determinističtější, Vyšší = kreativnější</p>
+            <div class="flex justify-between text-xs text-gray-500 mt-1">
+              <span>0 = Přesné, faktické</span>
+              <span>1 = Vyvážené</span>
+              <span>2 = Kreativní, náhodné</span>
+            </div>
           </div>
 
           <Divider />
@@ -660,10 +682,28 @@ function handleSubmit() {
         <!-- Features Tab -->
         <TabPanel value="features">
           <div class="space-y-4">
+          <!-- Educational info box -->
+          <div class="info-box info-box-purple">
+            <div class="flex items-start gap-2">
+              <i class="pi pi-sparkles info-box-icon mt-0.5" />
+              <div>
+                <p class="info-box-title">Pokročilé funkce LLM</p>
+                <p class="info-box-text mt-1">
+                  Moderní jazykové modely nabízí pokročilé funkce jako <strong>Thinking</strong> (model ukazuje svůj myšlenkový proces)
+                  a <strong>Tools</strong> (model může volat externí nástroje). Tyto funkce významně zlepšují kvalitu odpovědí
+                  pro složité úlohy, ale zvyšují dobu odezvy a náklady.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <!-- Streaming -->
           <div class="feature-row">
             <div class="feature-row-text">
-              <div class="feature-row-title">Streaming</div>
+              <div class="feature-row-title flex items-center gap-2">
+                Streaming
+                <i class="pi pi-info-circle text-gray-400 text-xs cursor-help" v-tooltip="'Odpověď se zobrazuje postupně jak model generuje tokeny. Bez streamingu byste čekali na celou odpověď.'"></i>
+              </div>
               <div class="feature-row-desc">Zobrazovat odpověď postupně jak se generuje</div>
             </div>
             <ToggleSwitch v-model="enableStreaming" />

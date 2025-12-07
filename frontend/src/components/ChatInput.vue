@@ -153,6 +153,7 @@ function formatSize(bytes: number): string {
         :disabled="!canSend"
         rounded
         severity="primary"
+        v-tooltip="'Odeslat zprávu (Enter)'"
       />
       <Button
         v-else
@@ -160,6 +161,7 @@ function formatSize(bytes: number): string {
         @click="emit('stop')"
         severity="danger"
         rounded
+        v-tooltip="'Zastavit generování odpovědi'"
       />
     </div>
 

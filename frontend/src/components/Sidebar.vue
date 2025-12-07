@@ -97,6 +97,7 @@ function formatTime(dateStr: string): string {
         <button
           @click="themeStore.toggle()"
           class="w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-sm"
+          v-tooltip="themeStore.isDark ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
         >
           <i :class="['pi text-sm', themeStore.isDark ? 'pi-sun text-yellow-500' : 'pi-moon text-gray-600']"></i>
         </button>
@@ -183,6 +184,7 @@ function formatTime(dateStr: string): string {
                 <button
                   @click="handleDeleteConversation(conv.id, $event)"
                   class="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all"
+                  v-tooltip="'Smazat konverzaci'"
                 >
                   <i class="pi pi-trash text-xs"></i>
                 </button>

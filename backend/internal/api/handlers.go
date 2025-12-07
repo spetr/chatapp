@@ -26,16 +26,21 @@ import (
 	"github.com/spetr/chatapp/internal/storage"
 )
 
+// Handler manages HTTP API endpoints for the chat application.
+// It coordinates between storage, providers, and MCP tools.
 type Handler struct {
 	config     *config.Config
 	configPath string
 	storage    *storage.SQLiteStorage
 	providers  *provider.Registry
 	mcp        *mcp.Client
-	configMu   sync.RWMutex
+	configMu   sync.RWMutex // Protects config access
 
-	// For cancellation
-	activeStreams map[string]context.CancelFunc
+	// Stream cancellation management
+	// activeStreams maps stream IDs to their cancel functions
+	// allowing users to stop ongoing LLM generations
+	activeStreams   map[string]context.CancelFunc
+	activeStreamsMu sync.RWMutex // Protects activeStreams map access
 }
 
 func NewHandler(cfg *config.Config, configPath string, store *storage.SQLiteStorage, providers *provider.Registry, mcpClient *mcp.Client) *Handler {
@@ -437,10 +442,13 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Create context with cancellation
+	// Create context with cancellation for this stream
+	// This allows users to stop generation via StopGeneration endpoint
 	ctx, cancel := context.WithCancel(context.Background())
 	streamID := uuid.New().String()
+	h.activeStreamsMu.Lock()
 	h.activeStreams[streamID] = cancel
+	h.activeStreamsMu.Unlock()
 
 	// Set up SSE headers
 	c.Set("Content-Type", "text/event-stream")
@@ -462,7 +470,9 @@ func (h *Handler) SendMessage(c *fiber.Ctx) error {
 	// Use streaming response
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer func() {
+			h.activeStreamsMu.Lock()
 			delete(h.activeStreams, streamID)
+			h.activeStreamsMu.Unlock()
 			cancel()
 		}()
 
@@ -795,19 +805,21 @@ func (h *Handler) RegenerateMessage(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "provider not found"})
 	}
 
-	// Create context
+	// Create context with cancellation for regeneration stream
 	ctx, cancel := context.WithCancel(context.Background())
 	streamID := uuid.New().String()
+	h.activeStreamsMu.Lock()
 	h.activeStreams[streamID] = cancel
+	h.activeStreamsMu.Unlock()
 
-	// Set up SSE headers
+	// Set up SSE (Server-Sent Events) headers for real-time streaming
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
 	c.Set("X-Stream-ID", streamID)
-	c.Set("X-Accel-Buffering", "no")
+	c.Set("X-Accel-Buffering", "no") // Disable nginx buffering
 
-	// Create new assistant message
+	// Create new assistant message for the regenerated response
 	assistantMsg := &models.Message{
 		ConversationID: convID,
 		Role:           "assistant",
@@ -817,7 +829,9 @@ func (h *Handler) RegenerateMessage(c *fiber.Ctx) error {
 	// Use streaming response
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer func() {
+			h.activeStreamsMu.Lock()
 			delete(h.activeStreams, streamID)
+			h.activeStreamsMu.Unlock()
 			cancel()
 		}()
 
@@ -879,15 +893,24 @@ func (h *Handler) RegenerateMessage(c *fiber.Ctx) error {
 	return nil
 }
 
+// StopGeneration cancels an ongoing LLM generation stream.
+// Users can use this to interrupt long-running responses.
+// The stream_id is provided in the X-Stream-ID header of the original request.
 func (h *Handler) StopGeneration(c *fiber.Ctx) error {
 	streamID := c.Query("stream_id")
 	if streamID == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "stream_id required"})
 	}
 
-	if cancel, ok := h.activeStreams[streamID]; ok {
+	h.activeStreamsMu.Lock()
+	cancel, ok := h.activeStreams[streamID]
+	if ok {
 		cancel()
 		delete(h.activeStreams, streamID)
+	}
+	h.activeStreamsMu.Unlock()
+
+	if ok {
 		return c.JSON(fiber.Map{"status": "stopped"})
 	}
 
