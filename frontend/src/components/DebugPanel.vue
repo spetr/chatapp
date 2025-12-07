@@ -208,6 +208,16 @@ onUnmounted(() => {
 
     <!-- Content -->
     <div class="flex-1 overflow-y-auto">
+      <!-- Educational info -->
+      <div class="p-3 text-xs text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+        <p class="font-medium text-blue-700 dark:text-blue-300 mb-1">
+          <i class="pi pi-info-circle mr-1"></i>
+          Ladící panel
+        </p>
+        <p class="text-2xs">
+          Zde vidíte detailní informace o komunikaci s LLM modelem - tokeny, rychlost, cenu a surová JSON data požadavků a odpovědí.
+        </p>
+      </div>
       <Accordion v-model:value="expandedSections" multiple class="debug-accordion">
 
         <!-- Metrics Section -->
@@ -226,11 +236,11 @@ onUnmounted(() => {
               <template v-if="metrics">
                 <!-- Token counts -->
                 <div class="grid grid-cols-2 gap-1.5">
-                  <div class="stat-box">
+                  <div class="stat-box cursor-help" v-tooltip="'Vstupní tokeny: systémový prompt + historie konverzace + váš dotaz. Více tokenů = vyšší cena.'">
                     <span class="stat-label">Vstup</span>
                     <span class="stat-value">{{ fmt(metrics.input_tokens) }}</span>
                   </div>
-                  <div class="stat-box">
+                  <div class="stat-box cursor-help" v-tooltip="'Výstupní tokeny: počet tokenů v odpovědi modelu. Generování výstupu je obvykle dražší než vstup.'">
                     <span class="stat-label">Výstup</span>
                     <span class="stat-value">{{ fmt(metrics.output_tokens) }}</span>
                   </div>
@@ -238,18 +248,18 @@ onUnmounted(() => {
 
                 <!-- Performance -->
                 <div class="grid grid-cols-2 gap-1.5">
-                  <div class="stat-box">
+                  <div class="stat-box cursor-help" v-tooltip="'Time To First Byte: doba od odeslání požadavku do přijetí první odpovědi. Ukazuje latenci serveru a modelu.'">
                     <span class="stat-label">TTFB</span>
                     <span class="stat-value">{{ metrics.ttfb_ms.toFixed(0) }}<small>ms</small></span>
                   </div>
-                  <div class="stat-box">
+                  <div class="stat-box cursor-help" v-tooltip="'Rychlost generování: kolik tokenů model generuje za sekundu. Vyšší = rychlejší odpovědi.'">
                     <span class="stat-label">Rychlost</span>
                     <span class="stat-value">{{ metrics.tokens_per_second.toFixed(0) }}<small>t/s</small></span>
                   </div>
                 </div>
 
                 <!-- Cache -->
-                <div v-if="metrics.cache_read_input_tokens" class="p-2 bg-green-500/10 rounded border border-green-500/20">
+                <div v-if="metrics.cache_read_input_tokens" class="p-2 bg-green-500/10 rounded border border-green-500/20 cursor-help" v-tooltip="'Prompt caching: část vstupních tokenů byla načtena z cache, což snižuje náklady a latenci. Funguje u Claude a některých dalších poskytovatelů.'">
                   <div class="flex justify-between items-center">
                     <span class="text-green-600 dark:text-green-400">Cache hit</span>
                     <span class="font-mono">{{ fmt(metrics.cache_read_input_tokens) }}</span>
@@ -257,7 +267,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Cost estimate -->
-                <div v-if="costEstimate" class="p-2 bg-yellow-500/10 rounded border border-yellow-500/20">
+                <div v-if="costEstimate" class="p-2 bg-yellow-500/10 rounded border border-yellow-500/20 cursor-help" v-tooltip="'Odhadovaná cena této zprávy na základě počtu tokenů a ceníku poskytovatele. Skutečná cena se může mírně lišit.'">
                   <div class="flex justify-between">
                     <span class="text-yellow-600 dark:text-yellow-400">Cena</span>
                     <span class="font-mono">${{ costEstimate.total }}</span>
@@ -306,19 +316,19 @@ onUnmounted(() => {
 
                 <!-- Feature flags - always show -->
                 <div class="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
-                  <div class="info-row">
+                  <div class="info-row cursor-help" v-tooltip="'Streaming: odpověď se zobrazuje postupně, jak ji model generuje. Rychlejší odezva, ale některé funkce nemusí být dostupné.'">
                     <span class="info-label">Streaming</span>
                     <span class="info-value">
                       <i :class="conversation.settings?.stream !== false ? 'pi pi-check text-green-500' : 'pi pi-times text-gray-400'"></i>
                     </span>
                   </div>
-                  <div class="info-row">
+                  <div class="info-row cursor-help" v-tooltip="'Extended Thinking: model přemýšlí před odpovědí. Zlepšuje kvalitu u složitých úloh, ale zvyšuje latenci a spotřebu tokenů.'">
                     <span class="info-label">Thinking</span>
                     <span class="info-value">
                       <i :class="conversation.settings?.enable_thinking ? 'pi pi-check text-purple-500' : 'pi pi-times text-gray-400'"></i>
                     </span>
                   </div>
-                  <div class="info-row">
+                  <div class="info-row cursor-help" v-tooltip="'Tool Use: model může volat externí nástroje (MCP) pro získání informací nebo provedení akcí. Implementace ReAct patternu.'">
                     <span class="info-label">Tools</span>
                     <span class="info-value">
                       <i :class="conversation.settings?.enable_tools ? 'pi pi-check text-blue-500' : 'pi pi-times text-gray-400'"></i>
@@ -382,17 +392,18 @@ onUnmounted(() => {
                   @click="loadMCPStatus"
                   :loading="mcpLoading"
                   class="!p-1"
+                  v-tooltip="'Znovu načíst stav MCP serverů a jejich nástrojů'"
                 />
               </div>
 
               <template v-if="mcpStatus">
                 <!-- Summary -->
                 <div class="grid grid-cols-2 gap-1.5">
-                  <div class="stat-box">
+                  <div class="stat-box cursor-help" v-tooltip="'Počet připojených MCP serverů. Každý server může poskytovat více nástrojů.'">
                     <span class="stat-label">Servery</span>
                     <span class="stat-value">{{ mcpStatus.server_count }}</span>
                   </div>
-                  <div class="stat-box">
+                  <div class="stat-box cursor-help" v-tooltip="'Celkový počet dostupných nástrojů ze všech MCP serverů. Model může tyto nástroje volat během konverzace.'">
                     <span class="stat-label">Nástroje</span>
                     <span class="stat-value">{{ mcpStatus.total_tools }}</span>
                   </div>
@@ -400,8 +411,9 @@ onUnmounted(() => {
 
                 <!-- Status -->
                 <div
-                  class="p-2 rounded flex items-center gap-2"
+                  class="p-2 rounded flex items-center gap-2 cursor-help"
                   :class="mcpStatus.enabled ? 'bg-green-500/10 border border-green-500/20' : 'bg-gray-100 dark:bg-gray-800'"
+                  v-tooltip="mcpStatus.enabled ? 'MCP je aktivní - model může používat externí nástroje' : 'MCP není aktivní - zkontrolujte konfiguraci serverů'"
                 >
                   <i
                     class="pi text-sm"
@@ -650,6 +662,7 @@ onUnmounted(() => {
             size="small"
             severity="secondary"
             @click="copyToClipboard(JSON.stringify(selectedTool?.inputSchema, null, 2))"
+            v-tooltip="'Kopírovat JSON schéma do schránky pro použití v kódu nebo dokumentaci'"
           />
         </div>
       </div>

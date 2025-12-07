@@ -1,5 +1,6 @@
 # Binaries
 bin/
+backend/chatapp
 *.exe
 *.exe~
 *.dll

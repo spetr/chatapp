@@ -296,12 +296,15 @@ func (c *Client) CallTool(ctx context.Context, name string, arguments map[string
 	return "", fmt.Errorf("tool not found: %s", name)
 }
 
+// readResponses continuously reads JSON-RPC responses from the MCP server's stdout.
+// It matches responses to pending requests by ID and sends results to waiting goroutines.
 func (conn *ServerConnection) readResponses() {
 	for conn.scanner.Scan() {
 		line := conn.scanner.Text()
 
 		var resp jsonRPCResponse
 		if err := json.Unmarshal([]byte(line), &resp); err != nil {
+			// Skip malformed responses - this can happen with debug output from servers
 			continue
 		}
 
@@ -311,6 +314,8 @@ func (conn *ServerConnection) readResponses() {
 
 		if exists {
 			if resp.Error != nil {
+				// Send nil to indicate error - the actual error is logged below
+				// We could enhance this by passing the error through a separate channel
 				ch <- nil
 			} else {
 				ch <- resp.Result
@@ -385,13 +390,18 @@ func (conn *ServerConnection) initialize(ctx context.Context) error {
 		return err
 	}
 
-	// Send initialized notification
+	// Send initialized notification (fire and forget, but log errors)
 	notification := jsonRPCRequest{
 		JSONRPC: "2.0",
 		Method:  "notifications/initialized",
 	}
-	data, _ := json.Marshal(notification)
-	conn.stdin.Write(append(data, '\n'))
+	data, err := json.Marshal(notification)
+	if err != nil {
+		return fmt.Errorf("failed to marshal initialized notification: %w", err)
+	}
+	if _, err := conn.stdin.Write(append(data, '\n')); err != nil {
+		return fmt.Errorf("failed to send initialized notification: %w", err)
+	}
 
 	return nil
 }

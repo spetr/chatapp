@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/spetr/chatapp/internal/models"
@@ -339,20 +340,30 @@ func (s *SQLiteStorage) GetConversationMessages(conversationID string, parentID 
 			return nil, err
 		}
 
+		// Parse metrics JSON - log error but don't fail (corrupted data shouldn't break the app)
 		if metricsJSON.Valid && metricsJSON.String != "" {
-			json.Unmarshal([]byte(metricsJSON.String), &msg.Metrics)
+			if err := json.Unmarshal([]byte(metricsJSON.String), &msg.Metrics); err != nil {
+				// Log but continue - partial data is better than failure
+				log.Printf("Warning: failed to parse metrics for message %s: %v", msg.ID, err)
+			}
 		}
 
 		if pID.Valid {
 			msg.ParentID = &pID.String
 		}
 
+		// Parse tool calls JSON - log error but don't fail
 		if toolCallsJSON.Valid && toolCallsJSON.String != "" {
-			json.Unmarshal([]byte(toolCallsJSON.String), &msg.ToolCalls)
+			if err := json.Unmarshal([]byte(toolCallsJSON.String), &msg.ToolCalls); err != nil {
+				log.Printf("Warning: failed to parse tool_calls for message %s: %v", msg.ID, err)
+			}
 		}
 
-		// Load attachments
-		attachments, _ := s.GetMessageAttachments(msg.ID)
+		// Load attachments - log error but don't fail
+		attachments, err := s.GetMessageAttachments(msg.ID)
+		if err != nil {
+			log.Printf("Warning: failed to load attachments for message %s: %v", msg.ID, err)
+		}
 		msg.Attachments = attachments
 
 		messages = append(messages, msg)
