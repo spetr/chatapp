@@ -1,0 +1,548 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom text size utilities */
+@layer utilities {
+  .text-2xs {
+    font-size: 0.625rem; /* 10px */
+    line-height: 0.875rem;
+  }
+}
+
+:root {
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* PrimeVue color overrides - blue theme */
+  --p-primary-color: #3b82f6;
+  --p-primary-contrast-color: #ffffff;
+  --p-primary-hover-color: #2563eb;
+  --p-primary-active-color: #1d4ed8;
+
+  /* Slider */
+  --p-slider-range-background: #3b82f6;
+  --p-slider-handle-background: #ffffff;
+  --p-slider-handle-border-color: #3b82f6;
+  --p-slider-handle-hover-border-color: #2563eb;
+  --p-slider-handle-focus-ring-color: rgba(59, 130, 246, 0.3);
+
+  /* ToggleSwitch */
+  --p-toggleswitch-checked-background: #3b82f6;
+  --p-toggleswitch-checked-hover-background: #2563eb;
+
+  /* Button */
+  --p-button-primary-background: #3b82f6;
+  --p-button-primary-hover-background: #2563eb;
+  --p-button-primary-active-background: #1d4ed8;
+}
+
+body {
+  @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* Code blocks */
+pre {
+  @apply bg-gray-100 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto;
+  font-family: var(--font-mono);
+}
+
+code {
+  font-family: var(--font-mono);
+  @apply text-sm;
+}
+
+:not(pre) > code {
+  @apply bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded;
+}
+
+/* Message content */
+.message-content {
+  @apply leading-relaxed;
+}
+
+.message-content p {
+  @apply mb-3 last:mb-0;
+}
+
+.message-content ul, .message-content ol {
+  @apply mb-3 pl-6;
+}
+
+.message-content ul {
+  @apply list-disc;
+}
+
+.message-content ol {
+  @apply list-decimal;
+}
+
+.message-content li {
+  @apply mb-1;
+}
+
+.message-content h1, .message-content h2, .message-content h3 {
+  @apply font-semibold mb-2 mt-4 first:mt-0;
+}
+
+.message-content h1 {
+  @apply text-xl;
+}
+
+.message-content h2 {
+  @apply text-lg;
+}
+
+.message-content h3 {
+  @apply text-base;
+}
+
+.message-content blockquote {
+  @apply border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic my-3;
+}
+
+.message-content table {
+  @apply w-full border-collapse my-3;
+}
+
+.message-content th, .message-content td {
+  @apply border border-gray-300 dark:border-gray-600 px-3 py-2 text-left;
+}
+
+.message-content th {
+  @apply bg-gray-100 dark:bg-gray-800 font-semibold;
+}
+
+/* Streaming cursor */
+.streaming-cursor::after {
+  content: '▋';
+  @apply animate-pulse ml-0.5;
+}
+
+/* ===== PrimeVue Dialog Overrides ===== */
+.p-dialog {
+  @apply rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden;
+  background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(249,250,251,1) 100%);
+}
+
+.dark .p-dialog {
+  background: linear-gradient(180deg, rgba(17,24,39,1) 0%, rgba(31,41,55,1) 100%);
+}
+
+.p-dialog-header {
+  @apply px-6 py-4 border-b border-gray-200 dark:border-gray-700;
+  background: transparent;
+}
+
+.p-dialog-title {
+  @apply text-lg font-semibold text-gray-900 dark:text-white;
+}
+
+.p-dialog-header-icon {
+  @apply w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors;
+}
+
+.p-dialog-content {
+  @apply px-6 py-5;
+  background: transparent;
+}
+
+/* Add spacing between header and first element */
+.p-dialog-content > *:first-child {
+  @apply mt-0;
+}
+
+.p-dialog-footer {
+  @apply px-6 py-4 border-t border-gray-200 dark:border-gray-700;
+  background: transparent;
+}
+
+/* ===== PrimeVue Tabs Overrides (v4) ===== */
+.p-tabs {
+  @apply w-full;
+}
+
+.p-tablist {
+  @apply border-b border-gray-200 dark:border-gray-700 bg-transparent flex gap-1 mb-4;
+}
+
+.p-tab {
+  @apply px-4 py-2.5 rounded-t-lg font-medium text-sm transition-all cursor-pointer;
+  @apply text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white;
+  @apply hover:bg-gray-100 dark:hover:bg-gray-800;
+  @apply border-b-2 border-transparent -mb-px;
+  background: transparent !important;
+}
+
+.p-tab[data-p-active="true"] {
+  @apply text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30;
+  @apply border-b-2 border-blue-500 dark:border-blue-400;
+}
+
+.p-tabpanels {
+  background: transparent;
+}
+
+/* Note: p-tabpanel min-height is set per-component for better control */
+
+/* ===== PrimeVue TabView Overrides (deprecated but still used) ===== */
+.p-tabview-nav {
+  @apply border-b border-gray-200 dark:border-gray-700 bg-transparent gap-1;
+}
+
+.p-tabview-nav-link {
+  @apply px-4 py-2.5 rounded-t-lg font-medium text-sm transition-all;
+  @apply text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white;
+  @apply hover:bg-gray-100 dark:hover:bg-gray-800;
+  border: none !important;
+  background: transparent !important;
+}
+
+.p-tabview-nav-link[data-p-active="true"] {
+  @apply text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30;
+  border-bottom: 2px solid currentColor !important;
+  margin-bottom: -1px;
+}
+
+.p-tabview-panels {
+  @apply pt-4;
+  background: transparent;
+}
+
+/* ===== PrimeVue Button Overrides ===== */
+.p-button {
+  @apply rounded-lg font-medium transition-all;
+}
+
+.p-button:not(.p-button-text):not(.p-button-outlined) {
+  @apply shadow-sm hover:shadow-md;
+}
+
+.p-button.p-button-primary {
+  @apply bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700;
+  border: none;
+}
+
+.p-button.p-button-secondary {
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300;
+  @apply hover:bg-gray-200 dark:hover:bg-gray-700;
+  border: none;
+}
+
+.p-button.p-button-success {
+  @apply bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700;
+  border: none;
+}
+
+/* ===== PrimeVue Select Overrides ===== */
+.p-select {
+  @apply rounded-lg border-gray-300 dark:border-gray-600;
+  @apply bg-white dark:bg-gray-800;
+}
+
+.p-select:hover {
+  @apply border-blue-400 dark:border-blue-500;
+}
+
+.p-select-overlay {
+  @apply rounded-lg shadow-lg border border-gray-200 dark:border-gray-700;
+  @apply bg-white dark:bg-gray-800;
+}
+
+.p-select-option {
+  @apply px-4 py-2.5 rounded-lg mx-1 my-0.5;
+}
+
+.p-select-option:hover {
+  @apply bg-gray-100 dark:bg-gray-700;
+}
+
+.p-select-option[data-p-highlight="true"] {
+  @apply bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400;
+}
+
+/* ===== PrimeVue Input Overrides ===== */
+.p-inputtext, .p-textarea {
+  @apply rounded-lg border-gray-300 dark:border-gray-600;
+  @apply bg-white dark:bg-gray-800;
+  @apply focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20;
+}
+
+.p-inputnumber-input {
+  @apply rounded-lg;
+}
+
+/* ===== PrimeVue Slider Overrides (v4) ===== */
+.p-slider {
+  @apply bg-gray-200 dark:bg-gray-700 rounded-full;
+  --p-slider-range-background: linear-gradient(to right, #3b82f6, #2563eb) !important;
+  --p-slider-handle-background: white !important;
+  --p-slider-handle-border-color: #3b82f6 !important;
+}
+
+.p-slider-range {
+  @apply rounded-full;
+  background: linear-gradient(to right, #3b82f6, #2563eb) !important;
+}
+
+.p-slider-handle {
+  @apply bg-white shadow-md;
+  border: 2px solid #3b82f6 !important;
+}
+
+.p-slider-handle:hover {
+  @apply bg-blue-50;
+  border-color: #2563eb !important;
+}
+
+.p-slider-handle:focus {
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* ===== PrimeVue ToggleSwitch Overrides (v4) ===== */
+.p-toggleswitch {
+  --p-toggleswitch-checked-background: #3b82f6 !important;
+  --p-toggleswitch-checked-hover-background: #2563eb !important;
+}
+
+.p-toggleswitch-slider {
+  @apply rounded-full bg-gray-300 dark:bg-gray-600;
+}
+
+.p-toggleswitch.p-toggleswitch-checked .p-toggleswitch-slider {
+  background: linear-gradient(to right, #3b82f6, #2563eb) !important;
+}
+
+/* ===== PrimeVue SelectButton Overrides ===== */
+.p-selectbutton {
+  @apply rounded-lg overflow-hidden;
+}
+
+.p-selectbutton .p-button {
+  @apply rounded-none first:rounded-l-lg last:rounded-r-lg;
+  @apply border-gray-300 dark:border-gray-600;
+}
+
+.p-selectbutton .p-button[data-p-highlight="true"] {
+  @apply bg-blue-500 text-white border-blue-500;
+}
+
+/* ===== PrimeVue ProgressBar Overrides ===== */
+.p-progressbar {
+  @apply rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden;
+}
+
+/* ===== PrimeVue ScrollPanel Overrides ===== */
+.p-scrollpanel-bar {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+/* ===== Dialog mask ===== */
+.p-dialog-mask {
+  @apply backdrop-blur-sm;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Custom Component Classes ===== */
+
+/* Modal header with icon */
+.modal-header {
+  @apply flex items-center gap-3;
+}
+
+.modal-header-icon {
+  @apply w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg text-white;
+}
+
+.modal-header-text h2 {
+  @apply font-semibold text-gray-900 dark:text-white text-base;
+}
+
+.modal-header-text p {
+  @apply text-xs text-gray-500 dark:text-gray-400;
+}
+
+/* Info boxes */
+.info-box {
+  @apply p-3 rounded-lg border text-sm;
+}
+
+.info-box-blue {
+  @apply bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800;
+}
+
+.info-box-blue .info-box-icon {
+  @apply text-blue-500;
+}
+
+.info-box-blue .info-box-title {
+  @apply text-blue-800 dark:text-blue-200 font-medium;
+}
+
+.info-box-blue .info-box-text {
+  @apply text-blue-700 dark:text-blue-300;
+}
+
+.info-box-yellow {
+  @apply bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800;
+}
+
+.info-box-yellow .info-box-icon {
+  @apply text-yellow-500;
+}
+
+.info-box-yellow .info-box-title {
+  @apply text-yellow-800 dark:text-yellow-200 font-medium;
+}
+
+.info-box-yellow .info-box-text {
+  @apply text-yellow-700 dark:text-yellow-300;
+}
+
+/* Stat cards */
+.stat-card {
+  @apply p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center;
+}
+
+.stat-card-value {
+  @apply text-2xl font-bold font-mono text-gray-900 dark:text-white;
+}
+
+.stat-card-label {
+  @apply text-xs text-gray-500 dark:text-gray-400;
+}
+
+/* Form field */
+.form-field {
+  @apply space-y-2;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-gray-700 dark:text-gray-300;
+}
+
+.form-help {
+  @apply text-xs text-gray-500 dark:text-gray-400 mt-1;
+}
+
+/* Feature toggle row */
+.feature-row {
+  @apply flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg;
+}
+
+.feature-row-text {
+  @apply space-y-0.5;
+}
+
+.feature-row-title {
+  @apply font-medium text-gray-900 dark:text-white;
+}
+
+.feature-row-desc {
+  @apply text-xs text-gray-500 dark:text-gray-400;
+}
+
+/* Selection cards */
+.selection-card {
+  @apply p-3 rounded-lg border transition-all cursor-pointer;
+  @apply bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700;
+  @apply hover:border-blue-300 dark:hover:border-blue-700;
+}
+
+.selection-card.selected {
+  @apply bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700;
+}
+
+.selection-card-header {
+  @apply flex items-center gap-2 mb-1;
+}
+
+.selection-card-title {
+  @apply font-medium text-sm text-gray-900 dark:text-white;
+}
+
+.selection-card-desc {
+  @apply text-xs text-gray-600 dark:text-gray-400;
+}
+
+/* Badge styles */
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+}
+
+.badge-blue {
+  @apply bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300;
+}
+
+.badge-green {
+  @apply bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300;
+}
+
+.badge-yellow {
+  @apply bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300;
+}
+
+.badge-red {
+  @apply bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300;
+}
+
+.badge-purple {
+  @apply bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300;
+}
+
+/* Section divider */
+.section-title {
+  @apply text-sm font-medium text-gray-700 dark:text-gray-300 mb-2;
+}
+
+/* Icon colors - semantic */
+.icon-primary {
+  @apply text-blue-500;
+}
+
+.icon-success {
+  @apply text-green-500;
+}
+
+.icon-warning {
+  @apply text-yellow-500;
+}
+
+.icon-danger {
+  @apply text-red-500;
+}
+
+.icon-info {
+  @apply text-blue-500;
+}
+
+.icon-purple {
+  @apply text-purple-500;
+}
+
+/* Consistent spacing for dialog content sections */
+.dialog-section {
+  @apply space-y-4;
+}
+
+.dialog-section + .dialog-section {
+  @apply mt-6 pt-6 border-t border-gray-200 dark:border-gray-700;
+}
